@@ -1,11 +1,12 @@
 import config
 import telebot
 import json
+from time import gmtime, strftime
 
 bot = telebot.TeleBot(config.token)
 
 teamList = {}
-admins = []
+admins = [334793866]
 
 with open('logs/teamList.txt') as data_file:    
     teamList = json.load(data_file)
@@ -46,20 +47,14 @@ def setTeamName(message):
 		bot.send_message(message.chat.id, "Команда для этого чата уже существует.\nНазвание: {name}.\nID: {id}".format(name = teamList[message.chat.id], id = message.chat.id))
 	else:
 		teamList[message.chat.id] = {'name' : message.text, 'step' : '0'}
-		j = json.dumps(teamList)
-		f = open('logs/teamList.txt', 'w')
-		f.write(j)
-		f.close()
+		saveTeamList()
 		bot.send_message(message.chat.id, "Ваша команда зарегестрирована.\nНазвание: {name}.\nID: {id}".format(name = message.text, id = message.chat.id))
 
 
 @bot.message_handler(commands=['deleteThisTeam'])
 def deleteThisTeam(message):
 	teamList.pop(message.chat.id)
-	j = json.dumps(teamList)
-	f = open('logs/teamList.txt', 'w')
-	f.write(j)
-	f.close()
+	saveTeamList()
 	bot.send_message(message.chat.id, "Команда для этого чата удалена.")
 
 
@@ -67,10 +62,7 @@ def deleteThisTeam(message):
 def deleteAllTeams(message):
 	if message.chat.id in admins:
 		teamList.clear()
-		j = json.dumps(teamList)
-		f = open('logs/teamList.txt', 'w')
-		f.write(j)
-		f.close()
+		saveTeamList()
 		bot.send_message(message.chat.id, "Все команды для этого бота удалены.")
 	else:
 		bot.send_message(message.chat.id, "У вас нет прав для выполнения этой команды.")
@@ -100,48 +92,56 @@ def checkPassword(message):
 def startGame(message):
 	if message.chat.id in admins:
 		for key in teamList.keys():
-			bot.send_message(key, "Внимание!! Игра началась!")
+			sendMessage(bot, key, "\nВнимание!! Игра началась!")
 			step1(key)
 	else:
 		bot.send_message(message.chat.id, "У вас нет прав для выполнения этой команды.")
 
 def step1(key):
-	sent = bot.send_message(key, "Сколько стоит 9 нагетсов в БургеКинге?. Формат ответа - /число.")
+	sendMessage(bot, key, "Сколько стоит 9 нагетсов в БургеКинге?. Формат ответа - /число.", "step1", step2)
 	teamList[key]['step'] = '1'
+	saveTeamList()
+
+def step2(message):
+	log(str(message.chat.id), "Team: step1:" + message.text)
+	if message.text == "/69":
+		teamList[str(message.chat.id)]['step'] = '2'
+		saveTeamList()
+		sendMessage(bot, message.chat.id, "Успех!", "step1")
+		sendMessage(bot, message.chat.id, "В чем смысл жизни?. Формат ответа - /число.", "step2", step3)
+	else:
+		sendMessage(bot, message.chat.id, "Неверный ответ.", "step1", step2)
+
+def step3(message):
+	log(str(message.chat.id), "Team: step2:" + message.text)
+	if message.text == "/42":
+		teamList[str(message.chat.id)]['step'] = '0'
+		saveTeamList()
+		sendMessage(bot, message.chat.id, "Успех!", "step2")
+		sendMessage(bot, message.chat.id, "Вы завершили игру, поздравляю!")
+	else:
+		sendMessage(bot, message.chat.id, "Неверный ответ.", "step3", step3)
+
+#### helpers ####
+
+def saveTeamList():
 	j = json.dumps(teamList)
 	f = open('logs/teamList.txt', 'w')
 	f.write(j)
 	f.close()
-	bot.register_next_step_handler(sent, step2)
 
-def step2(message):
-	if message.text == "/69":
-		teamList[str(message.chat.id)]['step'] = '2'
-		j = json.dumps(teamList)
-		f = open('logs/teamList.txt', 'w')
-		f.write(j)
-		f.close()
-		bot.send_message(message.chat.id, "Успех!")
-		sent = bot.send_message(message.chat.id, "В чем смысл жизни?. Формат ответа - /число.")
-		bot.register_next_step_handler(sent, step3)
-	else:
-		sent = bot.send_message(message.chat.id, "Неверный ответ.")
-		bot.register_next_step_handler(sent, step2)
+def log(key, message):
+	string = "{time}: {str}\n".format(time = strftime("%Y-%m-%d %H:%M:%S", gmtime()), str = message)
+	f = open("logs/{name}.txt".format(name = teamList[key]['name']), 'a')
+	f.write(string)
+	f.close()
 
-def step3(message):
-	if message.text == "/42":
-		teamList[str(message.chat.id)]['step'] = '0'
-		j = json.dumps(teamList)
-		f = open('logs/teamList.txt', 'w')
-		f.write(j)
-		f.close()
-		bot.send_message(message.chat.id, "Успех!")
-		bot.send_message(message.chat.id, "Вы завершили игру, поздравляю!")
-#		sent = bot.send_message(key, "В чем смысл жизни?. Формат ответа - /число.")
-#		bot.register_next_step_handler(sent, step3)
-	else:
-		sent = bot.send_message(message.chat.id, "Неверный ответ.")
-		bot.register_next_step_handler(sent, step3)
+def sendMessage(bot, key, message, mark = "", next = 0):
+	sent = bot.send_message(key, message)
+	log(str(key), "lala_bot: {mark}: ".format(mark = mark) + message)
+	if next != 0:
+		bot.register_next_step_handler(sent, next)
+	return bot
 
 
 if __name__ == '__main__':
