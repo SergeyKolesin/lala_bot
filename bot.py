@@ -15,12 +15,14 @@ with open('logs/teamList.txt') as data_file:
 
 @bot.message_handler(commands=['help'])
 def help(message):
-	bot.send_message(message.chat.id, "/start - познакомиться с ботом.")
-	bot.send_message(message.chat.id, "/newTeam - создать команду для этого чата.")
-	bot.send_message(message.chat.id, "/deleteThisTeam - удалить команду для этого чата.")
-	bot.send_message(message.chat.id, "/deleteAllTeams - удалить все команды для этого бота (доступна только для админов).")
-	bot.send_message(message.chat.id, "/showAllTeams - показать список всех зарегестрированных команд.")
-	bot.send_message(message.chat.id, "/startGame - начать игру (доступна только для админов).")
+	string = "/start - познакомиться с ботом." + "\n" +\
+	"/newTeam - создать команду для этого чата." + "\n" +\
+	"/deleteThisTeam - удалить команду для этого чата." + "\n" +\
+	"/showAllTeams - показать список всех зарегестрированных команд." + "\n" +\
+	"/deleteAllTeams - удалить все команды для этого бота (доступна только для админов)." + "\n" +\
+	"/startGame - начать игру (доступна только для админов)." + "\n" +\
+	"/progressList - (доступна только для админов)."
+	bot.send_message(message.chat.id, string)
 
 
 @bot.message_handler(commands=['start'])
@@ -53,8 +55,9 @@ def setTeamName(message):
 
 @bot.message_handler(commands=['deleteThisTeam'])
 def deleteThisTeam(message):
-	teamList.pop(message.chat.id)
-	saveTeamList()
+	if str(message.chat.id) in teamList:
+		teamList.pop(str(message.chat.id))
+		saveTeamList()
 	bot.send_message(message.chat.id, "Команда для этого чата удалена.")
 
 
@@ -70,8 +73,10 @@ def deleteAllTeams(message):
 
 @bot.message_handler(commands=['showAllTeams'])
 def showAllTeams(message):
+	string = ""
 	for key in teamList.keys():
-		bot.send_message(message.chat.id, "{name} id: {id}".format(name = teamList[key]['name'], id = key))
+		string = string + "{name} id: {id}\n".format(name = teamList[key]['name'], id = key)
+	bot.send_message(message.chat.id, string)
 
 
 @bot.message_handler(commands=['newAdmin'])
@@ -86,27 +91,37 @@ def checkPassword(message):
 	else:
 		bot.send_message(message.chat.id, "Неверный пароль.")
 
+
+@bot.message_handler(commands=['progressList'])
+def progressList(message):
+	if message.chat.id in admins:
+		string = ""
+		for key in teamList.keys():
+			string = string + "name: {name}, step: {step}\n".format(name = teamList[key]['name'], step = teamList[key]['step'])
+		bot.send_message(message.chat.id, string)
+	else:
+		bot.send_message(message.chat.id, "У вас нет прав для выполнения этой команды.")
+
 #### game logic ####
 
 @bot.message_handler(commands=['startGame'])
 def startGame(message):
 	if message.chat.id in admins:
 		for key in teamList.keys():
-			sendMessage(bot, key, "\nВнимание!! Игра началась!")
-			step1(key)
+			if teamList[key]['step'] == '0':
+				sendMessage(bot, key, "\nВнимание!! Игра началась!")
+				step1(key)
 	else:
 		bot.send_message(message.chat.id, "У вас нет прав для выполнения этой команды.")
 
 def step1(key):
+	setStep(key, '1')
 	sendMessage(bot, key, "Сколько стоит 9 нагетсов в БургеКинге?. Формат ответа - /число.", "step1", step2)
-	teamList[key]['step'] = '1'
-	saveTeamList()
 
 def step2(message):
 	log(str(message.chat.id), "Team: step1:" + message.text)
 	if message.text == "/69":
-		teamList[str(message.chat.id)]['step'] = '2'
-		saveTeamList()
+		setStep(message.chat.id, '2')
 		sendMessage(bot, message.chat.id, "Успех!", "step1")
 		sendMessage(bot, message.chat.id, "В чем смысл жизни?. Формат ответа - /число.", "step2", step3)
 	else:
@@ -115,8 +130,7 @@ def step2(message):
 def step3(message):
 	log(str(message.chat.id), "Team: step2:" + message.text)
 	if message.text == "/42":
-		teamList[str(message.chat.id)]['step'] = '0'
-		saveTeamList()
+		setStep(message.chat.id, '0')
 		sendMessage(bot, message.chat.id, "Успех!", "step2")
 		sendMessage(bot, message.chat.id, "Вы завершили игру, поздравляю!")
 	else:
@@ -143,6 +157,9 @@ def sendMessage(bot, key, message, mark = "", next = 0):
 		bot.register_next_step_handler(sent, next)
 	return bot
 
+def setStep(key, step):
+	teamList[str(key)]['step'] = step
+	saveTeamList()
 
 if __name__ == '__main__':
      bot.polling(none_stop=True)
