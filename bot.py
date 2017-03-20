@@ -1,9 +1,10 @@
 import config
+import myToken
 import telebot
 import json
 from time import gmtime, strftime
 
-bot = telebot.TeleBot(token.token)
+bot = telebot.TeleBot(myToken.token)
 
 teamList = {}
 admins = [334793866]
