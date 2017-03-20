@@ -3,7 +3,7 @@ import telebot
 import json
 from time import gmtime, strftime
 
-bot = telebot.TeleBot(config.token)
+bot = telebot.TeleBot(token.token)
 
 teamList = {}
 admins = [334793866]
