@@ -49,7 +49,7 @@ def setTeamName(message):
 	elif message.chat.id in teamList:
 		bot.send_message(message.chat.id, "Команда для этого чата уже существует.\nНазвание: {name}.\nID: {id}".format(name = teamList[message.chat.id], id = message.chat.id))
 	else:
-		teamList[message.chat.id] = {'name' : message.text, 'step' : '0'}
+		teamList[str(message.chat.id)] = {'name' : message.text, 'step' : '0'}
 		saveTeamList()
 		bot.send_message(message.chat.id, "Ваша команда зарегестрирована.\nНазвание: {name}.\nID: {id}".format(name = message.text, id = message.chat.id))
 
