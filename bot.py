@@ -22,6 +22,8 @@ def help(message):
 	"/showAllTeams - показать список всех зарегестрированных команд." + "\n" +\
 	"/deleteAllTeams - удалить все команды для этого бота (доступна только для админов)." + "\n" +\
 	"/startGame - начать игру (доступна только для админов)." + "\n" +\
+	"/continueGame - возобновить игру, после перезапуска бота (доступна только для админов)." + "\n" +\
+	"/sendToAllTeams - отправить сообщение всем командам (доступна только для админов)." + "\n" +\
 	"/progressList - (доступна только для админов)."
 	bot.send_message(message.chat.id, string)
 
@@ -103,6 +105,19 @@ def progressList(message):
 	else:
 		bot.send_message(message.chat.id, "У вас нет прав для выполнения этой команды.")
 
+
+@bot.message_handler(commands=['sendToAllTeams'])
+def sendToAllTeams(message):
+	if message.chat.id in admins:
+		sent = bot.send_message(message.chat.id, "Введите сообщение, которое хотите отправить всем командам.")
+		bot.register_next_step_handler(sent, sendToAll)
+	else:
+		bot.send_message(message.chat.id, "У вас нет прав для выполнения этой команды.")
+
+def sendToAll(message):
+	for key in teamList.keys():
+		bot.send_message(key, message.text)
+
 #### game logic ####
 
 @bot.message_handler(commands=['startGame'])
@@ -111,31 +126,58 @@ def startGame(message):
 		for key in teamList.keys():
 			if teamList[key]['step'] == '0':
 				sendMessage(bot, key, "\nВнимание!! Игра началась!")
-				step1(key)
+				setStep(key, '1')
+				sendMessage(bot, key, "Сколько стоит 9 нагетсов в БургеКинге?. Формат ответа - /число.", "step1", gameFlow)
 	else:
 		bot.send_message(message.chat.id, "У вас нет прав для выполнения этой команды.")
 
-def step1(key):
-	setStep(key, '1')
-	sendMessage(bot, key, "Сколько стоит 9 нагетсов в БургеКинге?. Формат ответа - /число.", "step1", step2)
 
-def step2(message):
-	log(str(message.chat.id), "Team: step1:" + message.text)
-	if message.text == "/69":
-		setStep(message.chat.id, '2')
-		sendMessage(bot, message.chat.id, "Успех!", "step1")
-		sendMessage(bot, message.chat.id, "В чем смысл жизни?. Формат ответа - /число.", "step2", step3)
+@bot.message_handler(commands=['continueGame'])
+def continueGame(message):
+	if message.chat.id in admins:
+		for key in teamList.keys():
+			if teamList[key]['step'] != '0':
+				sendMessage(bot, key, "У нас были некоторые технические неполадки, но сейчас они устранены. Вы можете продолжить игру.", "", gameFlow)
 	else:
-		sendMessage(bot, message.chat.id, "Неверный ответ.", "step1", step2)
+		bot.send_message(message.chat.id, "У вас нет прав для выполнения этой команды.")
 
-def step3(message):
-	log(str(message.chat.id), "Team: step2:" + message.text)
-	if message.text == "/42":
-		setStep(message.chat.id, '0')
-		sendMessage(bot, message.chat.id, "Успех!", "step2")
-		sendMessage(bot, message.chat.id, "Вы завершили игру, поздравляю!")
+
+@bot.message_handler(commands=['resetGame'])
+def resetGame(message):
+	if message.chat.id in admins:
+		for key in teamList.keys():
+			setStep(key, '0')
+			sendMessage(bot, key, "Игра остановлена админом. Вы не сможите продолжить игру.")
+		bot.send_message(message.chat.id, "Игра остановленна.")
 	else:
-		sendMessage(bot, message.chat.id, "Неверный ответ.", "step3", step3)
+		bot.send_message(message.chat.id, "У вас нет прав для выполнения этой команды.")
+
+def gameFlow(message):
+	currentStep = teamList[str(message.chat.id)]['step']
+	log(str(message.chat.id), "Team: {step}:".format(step = currentStep) + message.text)
+	if currentStep == '1':
+		if message.text == "/69":
+			setStep(message.chat.id, '2')
+			sendMessage(bot, message.chat.id, "Успех!", "step1")
+			sendMessage(bot, message.chat.id, "В чем смысл жизни?. Формат ответа - /число.", "step2", gameFlow)
+		else:
+			sendMessage(bot, message.chat.id, "Неверный ответ.", "step1", gameFlow)
+
+	elif currentStep == '2':
+		if message.text == "/42":
+			setStep(message.chat.id, '3')
+			sendMessage(bot, message.chat.id, "Успех!", "step2")
+			sendMessage(bot, message.chat.id, "\"Он вам не ...\". Формат ответа - /Слово", "step3", gameFlow)
+		else:
+			sendMessage(bot, message.chat.id, "Неверный ответ.", "step2", gameFlow)
+
+	elif currentStep == '3':
+		if message.text == "/Димон":
+			setStep(message.chat.id, '0')
+			sendMessage(bot, message.chat.id, "Успех!", "step3")
+			sendMessage(bot, message.chat.id, "Вы завершили игру, поздравляю!")
+		else:
+			sendMessage(bot, message.chat.id, "Неверный ответ.", "step3", gameFlow)
 
 #### helpers ####
 
