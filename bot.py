@@ -3,6 +3,8 @@ import myToken
 import telebot
 import json
 from time import gmtime, strftime
+from threading import Timer
+import time
 
 bot = telebot.TeleBot(myToken.token)
 
@@ -155,29 +157,42 @@ def resetGame(message):
 def gameFlow(message):
 	currentStep = teamList[str(message.chat.id)]['step']
 	log(str(message.chat.id), "Team: {step}:".format(step = currentStep) + message.text)
+
 	if currentStep == '1':
 		if message.text == "/69":
 			setStep(message.chat.id, '2')
 			sendMessage(bot, message.chat.id, "Успех!", "step1")
 			sendMessage(bot, message.chat.id, "В чем смысл жизни?. Формат ответа - /число.", "step2", gameFlow)
+			t = Timer(10, timeout, [message.chat.id, '2'])
+			t.start()
 		else:
 			sendMessage(bot, message.chat.id, "Неверный ответ.", "step1", gameFlow)
 
 	elif currentStep == '2':
-		if message.text == "/42":
-			setStep(message.chat.id, '3')
-			sendMessage(bot, message.chat.id, "Успех!", "step2")
+		if message.text == "/42" or message.text == "/next":
+			if message.text == "/42":
+				setStep(message.chat.id, '3')
+				sendMessage(bot, message.chat.id, "Успех!", "step2")
+			elif message.text == "/next":
+				step = teamList[str(message.chat.id)]['step']
+				nextStep = int(step) + 1
+				setStep(message.chat.id, str(nextStep))
 			sendMessage(bot, message.chat.id, "\"Он вам не ...\". Формат ответа - /Слово", "step3", gameFlow)
 		else:
 			sendMessage(bot, message.chat.id, "Неверный ответ.", "step2", gameFlow)
 
 	elif currentStep == '3':
 		if message.text == "/Димон":
-			setStep(message.chat.id, '0')
 			sendMessage(bot, message.chat.id, "Успех!", "step3")
+			setStep(message.chat.id, '0')
 			sendMessage(bot, message.chat.id, "Вы завершили игру, поздравляю!")
 		else:
 			sendMessage(bot, message.chat.id, "Неверный ответ.", "step3", gameFlow)
+
+def timeout(key, step):
+	currentStep = teamList[str(key)]['step']
+	if currentStep == step:
+		sendMessage(bot, key, "Вы не успели выполнить задание. /next - что бы получить следующее задание.", "step{s}".format(s=currentStep))
 
 #### helpers ####
 
