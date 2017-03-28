@@ -10,6 +10,7 @@ bot = telebot.TeleBot(myToken.token)
 
 teamList = {}
 admins = [334793866]
+hints = {'2' : "7*6"}
 
 with open('logs/teamList.txt') as data_file:    
     teamList = json.load(data_file)
@@ -53,7 +54,7 @@ def setTeamName(message):
 	elif message.chat.id in teamList:
 		bot.send_message(message.chat.id, "Команда для этого чата уже существует.\nНазвание: {name}.\nID: {id}".format(name = teamList[message.chat.id], id = message.chat.id))
 	else:
-		teamList[str(message.chat.id)] = {'name' : message.text, 'step' : '0'}
+		teamList[str(message.chat.id)] = {'name' : message.text, 'step' : '0', 'timeout' : [], 'time' : {}}
 		saveTeamList()
 		bot.send_message(message.chat.id, "Ваша команда зарегестрирована.\nНазвание: {name}.\nID: {id}".format(name = message.text, id = message.chat.id))
 
@@ -129,6 +130,8 @@ def startGame(message):
 			if teamList[key]['step'] == '0':
 				sendMessage(bot, key, "\nВнимание!! Игра началась!")
 				setStep(key, '1')
+				teamList[key]['time']['startTime'] = time.time()
+				saveTeamList()
 				sendMessage(bot, key, "Сколько стоит 9 нагетсов в БургеКинге?. Формат ответа - /число.", "step1", gameFlow)
 	else:
 		bot.send_message(message.chat.id, "У вас нет прав для выполнения этой команды.")
@@ -149,6 +152,9 @@ def resetGame(message):
 	if message.chat.id in admins:
 		for key in teamList.keys():
 			setStep(key, '0')
+			teamList[key]['timeout'].clear()
+			teamList[key]['time'].clear()
+			saveTeamList()
 			sendMessage(bot, key, "Игра остановлена админом. Вы не сможите продолжить игру.")
 		bot.send_message(message.chat.id, "Игра остановленна.")
 	else:
@@ -165,18 +171,23 @@ def gameFlow(message):
 			sendMessage(bot, message.chat.id, "В чем смысл жизни?. Формат ответа - /число.", "step2", gameFlow)
 			t = Timer(10, timeout, [message.chat.id, '2'])
 			t.start()
+			t1 = Timer(6, hintTime, [message.chat.id, '2'])
+			t1.start()
 		else:
 			sendMessage(bot, message.chat.id, "Неверный ответ.", "step1", gameFlow)
 
 	elif currentStep == '2':
-		if message.text == "/42" or message.text == "/next":
-			if message.text == "/42":
-				setStep(message.chat.id, '3')
-				sendMessage(bot, message.chat.id, "Успех!", "step2")
-			elif message.text == "/next":
-				step = teamList[str(message.chat.id)]['step']
-				nextStep = int(step) + 1
-				setStep(message.chat.id, str(nextStep))
+		isExpired = '2' in teamList[str(message.chat.id)]['timeout']
+		if isExpired and message.text != "/next":
+			sendMessage(bot, message.chat.id, "Время на выполнение этого задания истекло.\nВведите /next для получения следующего задания.", "step2", gameFlow)
+		elif message.text == "/42":
+			setStep(message.chat.id, '3')
+			sendMessage(bot, message.chat.id, "Успех!", "step2")
+			sendMessage(bot, message.chat.id, "\"Он вам не ...\". Формат ответа - /Слово", "step3", gameFlow)
+		elif message.text == "/next":
+			step = teamList[str(message.chat.id)]['step']
+			nextStep = int(step) + 1
+			setStep(message.chat.id, str(nextStep))
 			sendMessage(bot, message.chat.id, "\"Он вам не ...\". Формат ответа - /Слово", "step3", gameFlow)
 		else:
 			sendMessage(bot, message.chat.id, "Неверный ответ.", "step2", gameFlow)
@@ -184,15 +195,34 @@ def gameFlow(message):
 	elif currentStep == '3':
 		if message.text == "/Димон":
 			sendMessage(bot, message.chat.id, "Успех!", "step3")
-			setStep(message.chat.id, '0')
+			setStep(message.chat.id, 'finish')
 			sendMessage(bot, message.chat.id, "Вы завершили игру, поздравляю!")
+			teamList[str(message.chat.id)]['time']['endTime'] = time.time()
+			teamList[str(message.chat.id)]['time']['deltaTime'] = int(teamList[str(message.chat.id)]['time']['endTime']) - int(teamList[str(message.chat.id)]['time']['startTime'])
+			saveTeamList()
 		else:
 			sendMessage(bot, message.chat.id, "Неверный ответ.", "step3", gameFlow)
 
 def timeout(key, step):
 	currentStep = teamList[str(key)]['step']
 	if currentStep == step:
-		sendMessage(bot, key, "Вы не успели выполнить задание. /next - что бы получить следующее задание.", "step{s}".format(s=currentStep))
+		teamList[str(key)]['timeout'].append(step)
+		if 'penaltyTime' in teamList[str(key)]['time']:
+			teamList[str(key)]['time']['penaltyTime'] = int(teamList[str(key)]['time']['penaltyTime']) + 100
+		else:
+			teamList[str(key)]['time']['penaltyTime'] = 100
+		saveTeamList()
+		sendMessage(bot, key, "Вы не успели выполнить задание. Штраф 100 секунд.\n /next - что бы получить следующее задание.", "step{s}".format(s=currentStep))
+
+def hintTime(key, step):
+	currentStep = teamList[str(key)]['step']
+	if currentStep == step:
+		if 'penaltyTime' in teamList[str(key)]['time']:
+			teamList[str(key)]['time']['penaltyTime'] = int(teamList[str(key)]['time']['penaltyTime']) + 50
+		else:
+			teamList[str(key)]['time']['penaltyTime'] = 50
+		saveTeamList()
+		sendMessage(bot, key, "Штраф 50 секунд. Подсказка:{hint}".format(hint = hints[str(step)]), "step{s}".format(s=currentStep))
 
 #### helpers ####
 
