@@ -184,7 +184,7 @@ def gameFlow(message):
 			setStep(message.chat.id, '3')
 			sendMessage(bot, message.chat.id, "Успех!", "step2")
 			sendMessage(bot, message.chat.id, "\"Он вам не ...\". Формат ответа - /Слово", "step3", gameFlow)
-		elif message.text == "/next":
+		elif message.text == "/next" and isExpired:
 			step = teamList[str(message.chat.id)]['step']
 			nextStep = int(step) + 1
 			setStep(message.chat.id, str(nextStep))
